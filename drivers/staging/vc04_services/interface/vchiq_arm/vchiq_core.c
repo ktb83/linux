@@ -421,7 +421,7 @@ static inline struct semaphore *evhandle_to_sema(REMOTE_EVENT_T *event)
 }
 
 static inline void
-remote_event_create(VCHIQ_STATE_T *state, REMOTE_EVENT_T *event, struct semaphore *sem)
+remote_event_create(REMOTE_EVENT_T *event, struct semaphore *sem)
 {
 	size_t i;
 	event->armed = 0;
@@ -2468,14 +2468,14 @@ vchiq_init_state(VCHIQ_STATE_T *state, VCHIQ_SLOT_ZERO_T *slot_zero,
 	state->data_use_count = 0;
 	state->data_quota = state->slot_queue_available - 1;
 
-	remote_event_create(state, &local->trigger, &state->trigger_event);
+	remote_event_create(&local->trigger, &state->trigger_event);
 	local->tx_pos = 0;
 
-	remote_event_create(state, &local->recycle, &state->recycle_event);
+	remote_event_create(&local->recycle, &state->recycle_event);
 	local->slot_queue_recycle = state->slot_queue_available;
 
-	remote_event_create(state, &local->sync_trigger, &state->sync_trigger_event);
-	remote_event_create(state, &local->sync_release, &state->sync_release_event);
+	remote_event_create(&local->sync_trigger, &state->sync_trigger_event);
+	remote_event_create(&local->sync_release, &state->sync_release_event);
 
 	/* At start-of-day, the slot is empty and available */
 	((VCHIQ_HEADER_T *)SLOT_DATA_FROM_INDEX(state, local->slot_sync))->msgid
