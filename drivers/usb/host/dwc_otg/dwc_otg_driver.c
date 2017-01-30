@@ -835,7 +835,7 @@ static int dwc_otg_driver_probe(
 		goto fail;
 	}
 	dev_dbg(&_dev->dev, "base=0x%08x\n",
-                (unsigned)dwc_otg_device->os_dep.base);
+                (unsigned)(unsigned long)dwc_otg_device->os_dep.base);
 #endif
 
 	/*

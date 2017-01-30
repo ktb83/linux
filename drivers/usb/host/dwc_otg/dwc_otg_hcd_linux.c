@@ -481,7 +481,7 @@ static void hcd_init_fiq(void *cookie)
 	dwc_otg_hcd->fiq_state->mphi_regs.outddb  = otg_dev->os_dep.mphi_base + 0x2c;
 	dwc_otg_hcd->fiq_state->mphi_regs.intstat = otg_dev->os_dep.mphi_base + 0x50;
 	dwc_otg_hcd->fiq_state->dwc_regs_base = otg_dev->os_dep.base;
-	DWC_WARN("MPHI regs_base at 0x%08x", (int)dwc_otg_hcd->fiq_state->mphi_regs.base);
+	DWC_WARN("MPHI regs_base at 0x%08x", (int)(long)dwc_otg_hcd->fiq_state->mphi_regs.base);
 	//Enable mphi peripheral
 	writel((1<<31),dwc_otg_hcd->fiq_state->mphi_regs.ctrl);
 #ifdef DEBUG

@@ -1,4 +1,4 @@
-obj-$(CONFIG_BCM2708_VCHIQ)	+= vchiq.o
+obj-$(CONFIG_BCM2835_VCHIQ)	+= vchiq.o
 
 vchiq-objs := \
    interface/vchiq_arm/vchiq_core.o  \
@@ -9,6 +9,10 @@ vchiq-objs := \
    interface/vchiq_arm/vchiq_shim.o \
    interface/vchiq_arm/vchiq_util.o \
    interface/vchiq_arm/vchiq_connected.o \
+
+ifeq ($(CONFIG_COMPAT),y)
+	vchiq-objs += interface/vchiq_arm/vchiq_io32.o
+endif
 
 ccflags-y += -DVCOS_VERIFY_BKPTS=1 -Idrivers/staging/vc04_services -DUSE_VCHIQ_ARM -D__VCCOREVER__=0x04000000
 

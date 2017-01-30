@@ -79,6 +79,11 @@
 #define loud_error(...) \
 	LOG_ERR("===== " __VA_ARGS__)
 
+#ifdef CONFIG_ARM64
+#define dmac_flush_area __dma_flush_area
+static inline void outer_inv_range(phys_addr_t start, phys_addr_t end) {}
+#endif
+
 enum {
 	VC_CMA_MSG_QUIT,
 	VC_CMA_MSG_OPEN,
@@ -344,7 +349,7 @@ static int vc_cma_proc_open(struct inode *inode, struct file *file)
 *
 ***************************************************************************/
 
-static int vc_cma_proc_write(struct file *file,
+static ssize_t vc_cma_proc_write(struct file *file,
 			     const char __user *buffer,
 			     size_t size, loff_t *ppos)
 {
@@ -581,7 +586,12 @@ static int vc_cma_alloc_chunks(int num_chunks, struct cma_msg *reply)
 			break;
 
 		chunk_addr = page_address(chunk);
+
+#ifdef CONFIG_ARM64
+		dmac_flush_area(chunk_addr, chunk_size);
+#else
 		dmac_flush_range(chunk_addr, chunk_addr + chunk_size);
+#endif
 		outer_inv_range(__pa(chunk_addr), __pa(chunk_addr) +
 			chunk_size);
 
@@ -645,17 +655,17 @@ static int cma_worker_proc(void *param)
 		VCHIQ_HEADER_T *msg;
 		static struct cma_msg msg_copy;
 		struct cma_msg *cma_msg = &msg_copy;
-		int type, msg_size;
+		uintptr_t type, msg_size;
 
 		msg = vchiu_queue_pop(&cma_msg_queue);
-		if ((unsigned int)msg >= VC_CMA_MSG_MAX) {
+		if ((uintptr_t)msg >= VC_CMA_MSG_MAX) {
 			msg_size = msg->size;
 			memcpy(&msg_copy, msg->data, msg_size);
 			type = cma_msg->type;
 			vchiq_release_message(cma_service, msg);
 		} else {
 			msg_size = 0;
-			type = (int)msg;
+			type = (uintptr_t)msg;
 			if (type == VC_CMA_MSG_QUIT)
 				break;
 			else if (type == VC_CMA_MSG_UPDATE_RESERVE) {
@@ -677,9 +687,9 @@ static int cma_worker_proc(void *param)
 				if (num_chunks > VC_CMA_MAX_PARAMS_PER_MSG) {
 					LOG_ERR
 					    ("CMA_MSG_ALLOC - chunk count (%d) "
-					     "exceeds VC_CMA_MAX_PARAMS_PER_MSG (%d)",
+					     "exceeds VC_CMA_MAX_PARAMS_PER_MSG (%lu)",
 					     num_chunks,
-					     VC_CMA_MAX_PARAMS_PER_MSG);
+					     (unsigned long)VC_CMA_MAX_PARAMS_PER_MSG);
 					num_chunks = VC_CMA_MAX_PARAMS_PER_MSG;
 				}
 
@@ -727,9 +737,8 @@ static int cma_worker_proc(void *param)
 						LOG_ERR
 						    ("CMA_MSG_FREE - failed to "
 						     "release chunk %d (phys %pa, "
-						     "page %x)", chunk_num,
-						     &_pa,
-						     (unsigned int)page);
+						     "page %p)", chunk_num,
+						     &_pa, page);
 					}
 					vc_cma_chunks_used--;
 				}
@@ -771,7 +780,7 @@ static int cma_worker_proc(void *param)
 			break;
 
 		default:
-			LOG_ERR("unexpected msg type %d", type);
+			LOG_ERR("unexpected msg type %lu", type);
 			break;
 		}
 	}

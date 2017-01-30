@@ -237,7 +237,7 @@ add_register_map:
 		audio_info("bcm2835 ALSA card created!\n");
 	} else {
 		audio_info("bcm2835 ALSA chip created!\n");
-		platform_set_drvdata(pdev, (void *)dev);
+		platform_set_drvdata(pdev, (void *)(unsigned long)dev);
 	}
 
 	dev++;
@@ -272,13 +272,13 @@ static int snd_bcm2835_alsa_remove(struct platform_device *pdev)
 		g_card = NULL;
 		g_chip = NULL;
 	} else {
-		idx = (uint32_t) drv_data;
+		idx = (unsigned long) drv_data;
 		if (g_card != NULL) {
 			BUG_ON(!g_chip);
 			/* We pass chip device numbers in audio ipc devices
 			 * other than the one we registered our card with
 			 */
-			idx = (uint32_t) drv_data;
+			idx = (unsigned long) drv_data;
 			BUG_ON(!idx || idx > MAX_SUBSTREAMS);
 			g_chip->avail_substreams &= ~(1 << idx);
 			/* There should be atleast one substream registered

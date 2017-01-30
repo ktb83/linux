@@ -241,8 +241,8 @@ static void log_init(struct device *dev, u32 bus_to_phys)
 	sdhost_log_buf = dma_zalloc_coherent(dev, LOG_SIZE, &sdhost_log_addr,
 					     GFP_KERNEL);
 	if (sdhost_log_buf) {
-		pr_info("sdhost: log_buf @ %p (%x)\n",
-			sdhost_log_buf, sdhost_log_addr);
+		pr_info("sdhost: log_buf @ %p (%pad)\n",
+			sdhost_log_buf, &sdhost_log_addr);
 		timer_base = ioremap_nocache(bus_to_phys + 0x7e003000, SZ_4K);
 		if (!timer_base)
 			pr_err("sdhost: failed to remap timer\n");
@@ -522,7 +522,7 @@ static void bcm2835_sdhost_dma_complete(void *param)
 	unsigned long flags;
 
 	spin_lock_irqsave(&host->lock, flags);
-	log_event("DMA<", (u32)host->data, bcm2835_sdhost_read(host, SDHSTS));
+	log_event("DMA<", (unsigned long)host->data, bcm2835_sdhost_read(host, SDHSTS));
 	log_event("DMA ", bcm2835_sdhost_read(host, SDCMD),
 		  bcm2835_sdhost_read(host, SDEDM));
 
@@ -554,7 +554,7 @@ static void bcm2835_sdhost_dma_complete(void *param)
 
 	bcm2835_sdhost_finish_data(host);
 
-	log_event("DMA>", (u32)host->data, 0);
+	log_event("DMA>", (unsigned long)host->data, 0);
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
@@ -743,7 +743,7 @@ static void bcm2835_sdhost_transfer_pio(struct bcm2835_host *host)
 	u32 sdhsts;
 	bool is_read;
 	BUG_ON(!host->data);
-	log_event("XFP<", (u32)host->data, host->blocks);
+	log_event("XFP<", (unsigned long)host->data, host->blocks);
 
 	is_read = (host->data->flags & MMC_DATA_READ) != 0;
 	if (is_read)
@@ -768,7 +768,7 @@ static void bcm2835_sdhost_transfer_pio(struct bcm2835_host *host)
 		       sdhsts);
 		host->data->error = -ETIMEDOUT;
 	}
-	log_event("XFP>", (u32)host->data, host->blocks);
+	log_event("XFP>", (unsigned long)host->data, host->blocks);
 }
 
 static void bcm2835_sdhost_prepare_dma(struct bcm2835_host *host,
@@ -778,7 +778,7 @@ static void bcm2835_sdhost_prepare_dma(struct bcm2835_host *host,
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *dma_chan;
 
-	log_event("PRD<", (u32)data, 0);
+	log_event("PRD<", (unsigned long)data, 0);
 	pr_debug("bcm2835_sdhost_prepare_dma()\n");
 
 	dma_chan = host->dma_chan_rxtx;
@@ -789,7 +789,7 @@ static void bcm2835_sdhost_prepare_dma(struct bcm2835_host *host,
 		dir_data = DMA_TO_DEVICE;
 		dir_slave = DMA_MEM_TO_DEV;
 	}
-	log_event("PRD1", (u32)dma_chan, 0);
+	log_event("PRD1", (unsigned long)dma_chan, 0);
 
 	BUG_ON(!dma_chan->device);
 	BUG_ON(!dma_chan->device->dev);
@@ -836,7 +836,7 @@ static void bcm2835_sdhost_prepare_dma(struct bcm2835_host *host,
 		desc = dmaengine_prep_slave_sg(dma_chan, data->sg,
 					       len, dir_slave,
 					       DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
-	log_event("PRD3", (u32)desc, 0);
+	log_event("PRD3", (unsigned long)desc, 0);
 
 	if (desc) {
 		desc->callback = bcm2835_sdhost_dma_complete;
@@ -845,12 +845,12 @@ static void bcm2835_sdhost_prepare_dma(struct bcm2835_host *host,
 		host->dma_chan = dma_chan;
 		host->dma_dir = dir_data;
 	}
-	log_event("PDM>", (u32)data, 0);
+	log_event("PDM>", (unsigned long)data, 0);
 }
 
 static void bcm2835_sdhost_start_dma(struct bcm2835_host *host)
 {
-	log_event("SDMA", (u32)host->data, (u32)host->dma_chan);
+	log_event("SDMA", (unsigned long)host->data, (unsigned long)host->dma_chan);
 	dmaengine_submit(host->dma_desc);
 	dma_async_issue_pending(host->dma_chan);
 }
@@ -1074,7 +1074,7 @@ static void bcm2835_sdhost_finish_data(struct bcm2835_host *host)
 	data = host->data;
 	BUG_ON(!data);
 
-	log_event("FDA<", (u32)host->mrq, (u32)host->cmd);
+	log_event("FDA<", (unsigned long)host->mrq, (unsigned long)host->cmd);
 	pr_debug("finish_data(error %d, stop %d, sbc %d)\n",
 	       data->error, data->stop ? 1 : 0,
 	       host->mrq->sbc ? 1 : 0);
@@ -1097,7 +1097,7 @@ static void bcm2835_sdhost_finish_data(struct bcm2835_host *host)
 	}
 	else
 		bcm2835_sdhost_transfer_complete(host);
-	log_event("FDA>", (u32)host->mrq, (u32)host->cmd);
+	log_event("FDA>", (unsigned long)host->mrq, (unsigned long)host->cmd);
 }
 
 static void bcm2835_sdhost_transfer_complete(struct bcm2835_host *host)
@@ -1111,7 +1111,7 @@ static void bcm2835_sdhost_transfer_complete(struct bcm2835_host *host)
 	data = host->data;
 	host->data = NULL;
 
-	log_event("TCM<", (u32)data, data->error);
+	log_event("TCM<", (unsigned long)data, data->error);
 	pr_debug("transfer_complete(error %d, stop %d)\n",
 	       data->error, data->stop ? 1 : 0);
 
@@ -1133,7 +1133,7 @@ static void bcm2835_sdhost_transfer_complete(struct bcm2835_host *host)
 		bcm2835_sdhost_wait_transfer_complete(host);
 		tasklet_schedule(&host->finish_tasklet);
 	}
-	log_event("TCM>", (u32)data, 0);
+	log_event("TCM>", (unsigned long)data, 0);
 }
 
 /* If irq_flags is valid, the caller is in a thread context and is allowed
@@ -1148,7 +1148,7 @@ static void bcm2835_sdhost_finish_command(struct bcm2835_host *host,
 	int timediff = 0;
 #endif
 
-	log_event("FCM<", (u32)host->mrq, (u32)host->cmd);
+	log_event("FCM<", (unsigned long)host->mrq, (unsigned long)host->cmd);
 	pr_debug("finish_command(%x)\n", bcm2835_sdhost_read(host, SDCMD));
 
 	BUG_ON(!host->cmd || !host->mrq);
@@ -1296,7 +1296,7 @@ static void bcm2835_sdhost_finish_command(struct bcm2835_host *host,
 		else if (host->data_complete)
 			bcm2835_sdhost_transfer_complete(host);
 	}
-	log_event("FCM>", (u32)host->mrq, (u32)host->cmd);
+	log_event("FCM>", (unsigned long)host->mrq, (unsigned long)host->cmd);
 }
 
 static void bcm2835_sdhost_timeout(unsigned long data)
@@ -1335,7 +1335,7 @@ static void bcm2835_sdhost_timeout(unsigned long data)
 
 static void bcm2835_sdhost_busy_irq(struct bcm2835_host *host, u32 intmask)
 {
-	log_event("IRQB", (u32)host->cmd, intmask);
+	log_event("IRQB", (unsigned long)host->cmd, intmask);
 	if (!host->cmd) {
 		pr_err("%s: got command busy interrupt 0x%08x even "
 			"though no command operation was in progress.\n",
@@ -1388,7 +1388,7 @@ static void bcm2835_sdhost_data_irq(struct bcm2835_host *host, u32 intmask)
 	   data/space available FIFO status bits. It is therefore not
 	   an error to get here when there is no data transfer in
 	   progress. */
-	log_event("IRQD", (u32)host->data, intmask);
+	log_event("IRQD", (unsigned long)host->data, intmask);
 	if (!host->data)
 		return;
 
@@ -1425,7 +1425,7 @@ static void bcm2835_sdhost_data_irq(struct bcm2835_host *host, u32 intmask)
 
 static void bcm2835_sdhost_block_irq(struct bcm2835_host *host, u32 intmask)
 {
-	log_event("IRQK", (u32)host->data, intmask);
+	log_event("IRQK", (unsigned long)host->data, intmask);
 	if (!host->data) {
 		pr_err("%s: got block interrupt 0x%08x even "
 			"though no data operation was in progress.\n",
@@ -1684,10 +1684,10 @@ static void bcm2835_sdhost_request(struct mmc_host *mmc, struct mmc_request *mrq
 	edm = bcm2835_sdhost_read(host, SDEDM);
 	fsm = edm & SDEDM_FSM_MASK;
 
-	log_event("REQ<", (u32)mrq, edm);
+	log_event("REQ<", (unsigned long)mrq, edm);
 	if ((fsm != SDEDM_FSM_IDENTMODE) &&
 	    (fsm != SDEDM_FSM_DATAMODE)) {
-		log_event("REQ!", (u32)mrq, edm);
+		log_event("REQ!", (unsigned long)mrq, edm);
 		if (host->debug) {
 			pr_warn("%s: previous command (%d) not complete (EDM %x)\n",
 			       mmc_hostname(host->mmc),
@@ -1723,7 +1723,7 @@ static void bcm2835_sdhost_request(struct mmc_host *mmc, struct mmc_request *mrq
 		   mrq->data ? (u32)mrq->data->blksz : 0);
 	mmiowb();
 
-	log_event("REQ>", (u32)mrq, 0);
+	log_event("REQ>", (unsigned long)mrq, 0);
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
@@ -1779,7 +1779,7 @@ static void bcm2835_sdhost_cmd_wait_work(struct work_struct *work)
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	log_event("CWK<", (u32)host->cmd, (u32)host->mrq);
+	log_event("CWK<", (unsigned long)host->cmd, (unsigned long)host->mrq);
 
 	/*
 	 * If this tasklet gets rescheduled while running, it will
@@ -1794,7 +1794,7 @@ static void bcm2835_sdhost_cmd_wait_work(struct work_struct *work)
 
 	mmiowb();
 
-	log_event("CWK>", (u32)host->cmd, 0);
+	log_event("CWK>", (unsigned long)host->cmd, 0);
 
 	spin_unlock_irqrestore(&host->lock, flags);
 }
@@ -1810,7 +1810,7 @@ static void bcm2835_sdhost_tasklet_finish(unsigned long param)
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	log_event("TSK<", (u32)host->mrq, 0);
+	log_event("TSK<", (unsigned long)host->mrq, 0);
 	/*
 	 * If this tasklet gets rescheduled while running, it will
 	 * be run again afterwards but without any active request.
@@ -1878,7 +1878,7 @@ static void bcm2835_sdhost_tasklet_finish(unsigned long param)
 	}
 
 	mmc_request_done(host->mmc, mrq);
-	log_event("TSK>", (u32)mrq, 0);
+	log_event("TSK>", (unsigned long)mrq, 0);
 }
 
 int bcm2835_sdhost_add_host(struct bcm2835_host *host)

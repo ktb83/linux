@@ -37,6 +37,11 @@
 #include <linux/ioctl.h>
 #include "vchiq_if.h"
 
+#ifdef CONFIG_COMPAT
+extern long vchiq_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+extern long vchiq_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+#endif
+
 #define VCHIQ_IOC_MAGIC 0xc4
 #define VCHIQ_INVALID_HANDLE (~0)
 

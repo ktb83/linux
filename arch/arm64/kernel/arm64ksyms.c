@@ -67,6 +67,9 @@ EXPORT_SYMBOL(test_and_clear_bit);
 EXPORT_SYMBOL(change_bit);
 EXPORT_SYMBOL(test_and_change_bit);
 
+extern void __dma_flush_area(const void *, size_t);
+EXPORT_SYMBOL(__dma_flush_area);
+
 #ifdef CONFIG_FUNCTION_TRACER
 EXPORT_SYMBOL(_mcount);
 NOKPROBE_SYMBOL(_mcount);

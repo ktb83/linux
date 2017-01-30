@@ -171,7 +171,7 @@ static int ft5406_probe(struct platform_device *pdev)
 	}
 
 	if (!ts->ts_base) {
-		dev_warn(dev, "set failed, trying get (err:%d touchbuf:%x virt:%p bus:%x)\n", err, touchbuf, ts->ts_base, ts->bus_addr);
+		dev_warn(dev, "set failed, trying get (err:%d touchbuf:%x virt:%p bus:%pad)\n", err, touchbuf, ts->ts_base, &ts->bus_addr);
 
 		err = rpi_firmware_property(fw, RPI_FIRMWARE_FRAMEBUFFER_GET_TOUCHBUF,
 				    &touchbuf, sizeof(touchbuf));

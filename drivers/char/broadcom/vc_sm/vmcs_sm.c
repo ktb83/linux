@@ -42,6 +42,11 @@
 #include <linux/broadcom/vmcs_sm_ioctl.h>
 #include "vc_sm_knl.h"
 
+#ifdef CONFIG_ARM64
+extern void __dma_flush_area(const void *, size_t);
+#define dmac_flush_area __dma_flush_area
+#endif
+
 /* ---- Private Constants and Types --------------------------------------- */
 
 #define DEVICE_NAME              "vcsm"
@@ -209,6 +214,18 @@ static const char *const sm_cache_map_vector[] = {
 /* ---- Private Function Prototypes -------------------------------------- */
 
 /* ---- Private Functions ------------------------------------------------ */
+
+/* FIXME: It seems that L2 cache handling (CONFIG_OUTER_CACHE) is disabled for
+ * both bcm2709_defconfig and bcmrpi_defconfig, thus outer_* are nops. arm64
+ * doesn't support outer caches but we can still provide outer functions as
+ * nops, no behaviour change is expected between the arm and the arm64 variants
+ */
+#ifdef CONFIG_ARM64
+static inline void outer_inv_range(phys_addr_t start, phys_addr_t end)
+{ }
+static inline void outer_clean_range(phys_addr_t start, phys_addr_t end)
+{ }
+#endif
 
 static inline unsigned vcaddr_to_pfn(unsigned long vc_addr)
 {
@@ -500,8 +517,8 @@ static int vc_sm_global_state_show(struct seq_file *s, void *v)
 	if (sm_state == NULL)
 		return 0;
 
-	seq_printf(s, "\nVC-ServiceHandle     0x%x\n",
-		   (unsigned int)sm_state->sm_handle);
+	seq_printf(s, "\nVC-ServiceHandle     0x%p\n",
+		   sm_state->sm_handle);
 
 	/* Log all applicable mapping(s).
 	 */
@@ -512,8 +529,8 @@ static int vc_sm_global_state_show(struct seq_file *s, void *v)
 		list_for_each_entry(map, &sm_state->map_list, map_list) {
 			map_count++;
 
-			seq_printf(s, "\nMapping                0x%x\n",
-				   (unsigned int)map);
+			seq_printf(s, "\nMapping                0x%p\n",
+				   map);
 			seq_printf(s, "           TGID        %u\n",
 				   map->res_pid);
 			seq_printf(s, "           VC-HDL      0x%x\n",
@@ -1170,7 +1187,7 @@ static int vcsm_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	/* We don't use vmf->pgoff since that has the fake offset */
 	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start);
-	pfn = (uint32_t)resource->res_base_mem & 0x3FFFFFFF;
+	pfn = (uintptr_t)resource->res_base_mem & 0x3FFFFFFF;
 	pfn += mm_vc_mem_phys_addr;
 	pfn += page_offset;
 	pfn >>= PAGE_SHIFT;
@@ -1239,10 +1256,11 @@ static void vcsm_vma_cache_clean_page_range(unsigned long addr,
 						continue;
 
 					/* Clean + invalidate */
-					dmac_flush_range((const void *) addr,
-							 (const void *)
-							 (addr + PAGE_SIZE));
-
+#ifdef CONFIG_ARM64
+					dmac_flush_area((const void *)addr, (size_t)PAGE_SIZE);
+#else
+					dmac_flush_range((const void *)addr, (const void *)(addr + PAGE_SIZE));
+#endif
 				} while (pte++, addr +=
 					 PAGE_SIZE, addr != pmd_next);
 				pte_unmap(pte);
@@ -1732,7 +1750,7 @@ static int vc_sm_ioctl_lock(struct SM_PRIV_DATA_T *private,
 	/* Lock assumed taken already, address to be mapped is known.
 	 */
 	else
-		resource->res_base_mem = (void *)vc_addr;
+		resource->res_base_mem = (void *)(uintptr_t)vc_addr;
 
 	resource->res_stats[LOCK]++;
 	resource->lock_count++;
@@ -1793,7 +1811,7 @@ static int vc_sm_ioctl_lock(struct SM_PRIV_DATA_T *private,
 				ret = -ENOMEM;
 				goto error;
 			} else {
-				phys_addr = (uint32_t)resource->res_base_mem &
+				phys_addr = (uintptr_t)resource->res_base_mem &
 				    0x3FFFFFFF;
 				phys_addr += mm_vc_mem_phys_addr;
 				if (resource->res_cached
@@ -1882,7 +1900,7 @@ static int vc_sm_ioctl_unlock(struct SM_PRIV_DATA_T *private,
 			resource->res_stats[FLUSH]++;
 
 			phys_addr =
-			    (dma_addr_t)((uint32_t)resource->res_base_mem &
+			    (dma_addr_t)((uintptr_t)resource->res_base_mem &
 					 0x3FFFFFFF);
 			phys_addr += (dma_addr_t)mm_vc_mem_phys_addr;
 
@@ -1937,17 +1955,17 @@ static int vc_sm_ioctl_unlock(struct SM_PRIV_DATA_T *private,
 									VMCS_SM_CACHE_HOST)) {
 							long unsigned int
 								phys_addr;
-							phys_addr = (uint32_t)
+							phys_addr = (uintptr_t)
 								resource->res_base_mem & 0x3FFFFFFF;
 							phys_addr +=
 								mm_vc_mem_phys_addr;
 
 							/* L1 cache flush */
-							dmac_flush_range((const
-										void
-										*)
-									map->res_addr, (const void *)
-									(map->res_addr + resource->res_size));
+#ifdef CONFIG_ARM64
+							dmac_flush_area((const void *)map->res_addr, (size_t)resource->res_size);
+#else
+							dmac_flush_range((const void *)map->res_addr, (const void *)(map->res_addr + resource->res_size));
+#endif
 
 							/* L2 cache flush */
 							outer_clean_range
@@ -2568,7 +2586,7 @@ static long vc_sm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			    vmcs_sm_acquire_resource(file_data, ioparam.handle);
 			if (resource != NULL) {
 				ioparam.addr =
-					(unsigned int)resource->res_base_mem;
+					(uintptr_t)resource->res_base_mem;
 				vmcs_sm_release_resource(resource, 0);
 			} else {
 				ioparam.addr = 0;
@@ -2645,7 +2663,7 @@ static long vc_sm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				resource->res_stats[FLUSH]++;
 
 				phys_addr =
-				    (dma_addr_t)((uint32_t)
+				    (dma_addr_t)((uintptr_t)
 						 resource->res_base_mem &
 						 0x3FFFFFFF);
 				phys_addr += (dma_addr_t)mm_vc_mem_phys_addr;
@@ -2701,7 +2719,7 @@ static long vc_sm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				resource->res_stats[INVALID]++;
 
 				phys_addr =
-				    (dma_addr_t)((uint32_t)
+				    (dma_addr_t)((uintptr_t)
 						 resource->res_base_mem &
 						 0x3FFFFFFF);
 				phys_addr += (dma_addr_t)mm_vc_mem_phys_addr;

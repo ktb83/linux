@@ -2372,7 +2372,7 @@ static struct uart_driver amba_reg = {
 	.cons			= AMBA_CONSOLE,
 };
 
-static int pl011_probe_dt_alias(int index, struct device *dev)
+/* static int pl011_probe_dt_alias(int index, struct device *dev)
 {
 	struct device_node *np;
 	static bool seen_dev_with_alias = false;
@@ -2402,7 +2402,7 @@ static int pl011_probe_dt_alias(int index, struct device *dev)
 		dev_warn(dev, "aliased and non-aliased serial devices found in device tree. Serial port enumeration may be unpredictable.\n");
 
 	return ret;
-}
+} */
 
 /* unregisters the driver also if no more ports are left */
 static void pl011_unregister_port(struct uart_amba_port *uap)
