@@ -329,10 +329,15 @@ static int rpi_touchscreen_enable(struct drm_panel *panel)
 	rpi_touchscreen_write(ts, DSI_STARTDSI, 0x01);
 	msleep(100);
 
-	/* Turn on the backklight. */
+	/* Turn on the backlight. */
 	rpi_touchscreen_i2c_write(ts, REG_PWM, 255);
 
-	rpi_touchscreen_i2c_write(ts, REG_PORTA, BIT(3));
+	/* Default to the same orientation as the closed source
+	 * firmware used for the panel.  Runtime rotation
+	 * configuration will be supported using VC4's plane
+	 * orientation bits.
+	 */
+	rpi_touchscreen_i2c_write(ts, REG_PORTA, BIT(2));
 
 	return 0;
 }
