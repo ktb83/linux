@@ -313,7 +313,7 @@ static struct drm_plane *vc4_fkms_plane_init(struct drm_device *dev,
 	ret = drm_universal_plane_init(dev, plane, 0xff,
 				       &vc4_plane_funcs,
 				       primary ? &xrgb8888 : &argb8888, 1,
-				       type, NULL);
++				       type, primary ? "primary" : "cursor");
 
 	vc4_plane->fbinfo =
 		dma_alloc_coherent(dev->dev,
